@@ -1,0 +1,137 @@
+package basicinterp.gen;
+
+import java_cup.runtime.*;
+import basicinterp.math.*;
+import basicinterp.instruction.*;
+import basicinterp.program.*;
+import basicinterp.logic.*;
+import basicinterp.string.*;
+import java.io.FileNotFoundException;
+
+parser code {:
+
+    private Program program = new Program();
+
+    public Program program() {
+        return program;
+    }
+
+	public static void main(String args[]) {
+		SymbolFactory sf = new DefaultSymbolFactory();
+		Parser parser;
+		if (args.length==0) {
+		    parser = new Parser(new Scanner(System.in,sf),sf);
+		} else {
+		    try {
+		        parser = new Parser(new Scanner(new java.io.FileInputStream(args[0]),sf),sf);
+		    }
+		    catch(FileNotFoundException e) {
+		        System.out.println("Specified file in not found");
+		        return;
+		    }
+		}
+		try {
+		    parser.parse();
+		}
+		catch(Exception e) {
+		    System.out.println("Parser error:");
+		    System.out.println(e);
+		    return;
+		}
+		try {
+		    parser.program.run();
+		}
+		catch(Exception e) {
+		    System.out.println("Runtime error:");
+		    System.out.println(e);
+		    return;
+		}
+	}
+:}
+
+// arithmetic symbols
+terminal PLUS, MINUS, TIMES, DIVIDE, MOD, LPAREN, RPAREN;
+// logic symbols
+terminal LESS_THAN, GREATER_THAN, LESS_THAN_OR_EQUALS, GREATER_THAN_OR_EQUALS, EQUALS;
+// keywords
+terminal PRINT, INPUT, IF, THEN, ELSE;
+// constant
+terminal Integer INTEGRAL_CONSTANT;
+terminal String STRING_CONSTANT;
+// variables
+terminal String INTEGRAL_VARIABLE_NAME;
+terminal String STRING_VARIABLE_NAME;
+
+
+non terminal program;
+non terminal Instruction instruction;
+non terminal MathExpression math_expr;
+non terminal LogicExpression logic_expr;
+non terminal StringExpression str_expr;
+non terminal IntegralVariable int_var;
+non terminal StringVariable str_var;
+non terminal Printable printable;
+
+
+precedence left PLUS, MINUS;
+precedence left TIMES, DIVIDE;
+
+
+// program is a list of instructions
+program ::= program instruction:i {:
+                parser.program().addInstruction(i);
+            :}
+            | instruction:i {:
+                parser.program().addInstruction(i);
+            :}
+            ;
+
+// instruction is any language construct
+instruction ::=
+        // print instruction
+        PRINT printable:p {: RESULT = new PrintInstruction(p); :}
+        // if clause
+        | IF logic_expr:condition THEN instruction:i {:
+            RESULT = new ConditionalInstruction(condition, i);
+        :}
+        // assignment to an integral variable
+        | int_var:var EQUALS math_expr:e {:
+            RESULT = new IntegralAssignmentInstruction(var, e);
+        :}
+        // assignment to a string variable
+        | str_var:var EQUALS str_expr:e  {:
+            RESULT = new StringAssignmentInstruction(var, e);
+        :}
+        ;
+
+//
+
+logic_expr ::= math_expr:l GREATER_THAN math_expr:r {: RESULT = new GreaterThan(l, r); :}
+             | math_expr:l GREATER_THAN_OR_EQUALS math_expr:r {: RESULT = new GreaterThanOrEquals(l, r); :}
+             | math_expr:l LESS_THAN math_expr:r {: RESULT = new LessThan(l, r); :}
+             | math_expr:l LESS_THAN_OR_EQUALS math_expr:r {: RESULT = new LessThanOrEquals(l, r); :}
+             | math_expr:l EQUALS math_expr:r {: RESULT = new Equals(l, r); :}
+             ;
+
+math_expr ::= INTEGRAL_CONSTANT:n {: RESULT = new Constant(n); :}
+          | math_expr:l PLUS math_expr:r {: RESULT = new Addition(l, r); :}
+          | math_expr:l MINUS math_expr:r {: RESULT = new Subtraction(l, r); :}
+	      | math_expr:l TIMES math_expr:r {: RESULT = new Multiplication(l, r); :}
+	      | math_expr:l DIVIDE math_expr:r {: RESULT = new Division(l, r); :}
+	      | int_var:var {: RESULT = var; :}
+	      | LPAREN math_expr:e RPAREN {: RESULT = e; :}
+	      ;
+
+str_expr ::= STRING_CONSTANT:c {: RESULT = new StringConstant(c); :}
+            | str_var:var {: RESULT = var; :}
+            ;
+
+int_var ::= INTEGRAL_VARIABLE_NAME:name {: RESULT = parser.program().getIntegralVariable(name); :}
+             ;
+
+str_var ::= STRING_VARIABLE_NAME:name {: RESULT = parser.program().getStringVariable(name); :}
+            ;
+
+printable ::= math_expr:e {: RESULT = e; :}
+              | str_expr:e {: RESULT = e; :}
+              ;

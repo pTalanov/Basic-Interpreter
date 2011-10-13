@@ -1,0 +1,22 @@
+PRINT 13*7
+PRINT (44+1) * 2
+PRINT 44 + 1 * 2
+PRINT 1000
+IF (2) = 7 /3 THEN PRINT 1
+a = 1
+b = 3
+
+PRINT "Hello world"
+
+$abc = "ABCDEFG LOL"
+
+PRINT $abc
+
+PRINT $a
+
+PRINT a
+PRINT b
+PRINT a + b
+PRINT a * 33
+PRINT b + c
+
